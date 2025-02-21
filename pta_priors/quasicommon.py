@@ -30,7 +30,7 @@ try:
     import numpy as np
     from scipy import interpolate
     from scipy.interpolate import griddata
-    from scipy.integrate import simps
+    from scipy.integrate import simpson
     from mpmath import mp
     import matplotlib.cm as cm
     import matplotlib.colors as mcolors
@@ -45,17 +45,9 @@ except:
 from .utils import hierarchical_models as hm
 from .utils import importance_sampling as im
 
-plt.rcParams.update({
-  "text.usetex": True,
-  "font.family": "serif",
-  #"font.serif": ["Palatino"],
-})
-font = {'family' : 'serif',
-        'size'   : 17}
-
 def cred_lvl_from_analytical_dist(xx,yy,lvl=[0.159,0.841]):
-  yy = yy/simps(yy,x=xx)
-  yy_cdf = np.array([simps(yy[0:ii],x=xx[0:ii]) for ii in range(1,len(xx))])
+  yy = yy/simpson(yy,x=xx)
+  yy_cdf = np.array([simpson(yy[0:ii],x=xx[0:ii]) for ii in range(1,len(xx))])
   return [(np.abs(yy_cdf - val)).argmin() for val in lvl]
 
 def hex_to_rgb(value):
@@ -102,6 +94,14 @@ def get_continuous_cmap(hex_list, float_list=None):
     return cmp
 
 def main():
+
+  plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    #"font.serif": ["Palatino"],
+  })
+  font = {'family' : 'serif',
+          'size'   : 17}
 
   opts = hm.parse_commandline()
 
@@ -312,7 +312,7 @@ def main():
       plt.close()
       # 1D zoomed 4
       for ii in [334,299]:
-        plt.semilogy(Y[1:25,ii],zv1[1:25,ii]/simps(zv1[1:25,ii],x=Y[1:25,ii]),linestyle='-',label='$mu_lg_A='+str(X[0,ii])+'$')
+        plt.semilogy(Y[1:25,ii],zv1[1:25,ii]/simpson(zv1[1:25,ii],x=Y[1:25,ii]),linestyle='-',label='$mu_lg_A='+str(X[0,ii])+'$')
       plt.xlabel('$\sigma_{lgA}$')
       plt.ylabel('Normalized probability')
       plt.legend()
@@ -427,8 +427,8 @@ def main():
                    t_contours)
   
       # Marginalized posteriors
-      mu_marg_over_sig = simps(exp_zv1_posterior,axis=0,x=yy)
-      sig_marg_over_mu = simps(exp_zv1_posterior,axis=1,x=xx)
+      mu_marg_over_sig = simpson(exp_zv1_posterior,axis=0,x=yy)
+      sig_marg_over_mu = simpson(exp_zv1_posterior,axis=1,x=xx)
   
       fig = plt.figure()
       axes = fig.add_subplot(111)
@@ -455,8 +455,8 @@ def main():
       print('Savage-Dickey Bayes factor for zero sigma, unzoomed: ', sig_marg_over_mu[1]/(yy[-1]-yy[1]))
   
       # Marginalized zoomed posteriors
-      mu_marg_over_sig_z = simps(exp_zv1_posterior_z,axis=0,x=yy[evobj.mask[1]])
-      sig_marg_over_mu_z = simps(exp_zv1_posterior_z,axis=1,x=xx[evobj.mask[0]])
+      mu_marg_over_sig_z = simpson(exp_zv1_posterior_z,axis=0,x=yy[evobj.mask[1]])
+      sig_marg_over_mu_z = simpson(exp_zv1_posterior_z,axis=1,x=xx[evobj.mask[0]])
   
       # Savage-Dickey odds ratio
       bf_zero_over_nonzero = sig_marg_over_mu_z[0]/(yy[evobj.mask[1]][-1]-yy[evobj.mask[1]][0])
@@ -650,8 +650,8 @@ def main():
       plt.close()
   
       # Marginalized posteriors
-      mu_marg_over_sig = simps(exp_zv1_posterior,axis=0,x=yy)
-      sig_marg_over_mu = simps(exp_zv1_posterior,axis=1,x=xx)
+      mu_marg_over_sig = simpson(exp_zv1_posterior,axis=0,x=yy)
+      sig_marg_over_mu = simpson(exp_zv1_posterior,axis=1,x=xx)
   
       fig = plt.figure()
       axes = fig.add_subplot(111)
@@ -678,8 +678,8 @@ def main():
       print('Savage-Dickey Bayes factor for zero sigma, unzoomed: ', sig_marg_over_mu[1]/(yy[-1]-yy[1]))
   
       # Marginalized zoomed posteriors
-      mu_marg_over_sig_z = simps(exp_zv1_posterior_z,axis=0,x=yy[evobj.mask[1]])
-      sig_marg_over_mu_z = simps(exp_zv1_posterior_z,axis=1,x=xx[evobj.mask[0]])
+      mu_marg_over_sig_z = simpson(exp_zv1_posterior_z,axis=0,x=yy[evobj.mask[1]])
+      sig_marg_over_mu_z = simpson(exp_zv1_posterior_z,axis=1,x=xx[evobj.mask[0]])
   
       # Savage-Dickey odds ratio
       bf_zero_over_nonzero = sig_marg_over_mu_z[0]/(yy[evobj.mask[1]][-1]-yy[evobj.mask[1]][0])

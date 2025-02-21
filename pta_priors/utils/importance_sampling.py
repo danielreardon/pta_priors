@@ -2,7 +2,7 @@ import tqdm
 import time
 import os.path
 
-from scipy.integrate import simps
+from scipy.integrate import simpson
 from scipy.special import logsumexp
 import numpy as np
 
@@ -216,8 +216,6 @@ class ImportanceResult(results.BilbyWarpResult):
 
 # =================================================  #
 
-from mpmath import mp
-#mp.prec = 170
 
 class AnalyticalEvidence1D(object):
   """
@@ -227,6 +225,7 @@ class AnalyticalEvidence1D(object):
   limits: ((x_low, x_high)), double brackets for compatibility with the child class
   """
   def __init__(self, log_likelihood=None, x_vals=None, limits=None, method='mpmath'):
+    from mpmath import mp
     self.log_likelihood = log_likelihood
     self.x_vals = x_vals
     self.limits = limits
