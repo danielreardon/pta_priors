@@ -42,7 +42,7 @@ from enterprise.signals import parameter
 pta = None
 
 # Let's set the target prior. Dictionary keys should be fragments of enterprise parameter names. Full parameter names will be something like 'J0437-4715_dm_gp_log10_A'.
-hierarchical parameters = {
+hierarchical_parameters = {
     'dm_gp_log10_A': parameter.UniformPrior,
     'dm_gp_gamma': parameter.UniformPrior
 }

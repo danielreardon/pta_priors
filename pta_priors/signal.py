@@ -55,17 +55,22 @@ class HierarchicalHyperModel(hypermodel.HyperModel):
         print('Hierarchical Bayesian inference initialization:')
 
         self.hierarchical_parameters = hierarchical_parameters
-        self.hierarchical_parameter_idx = {mm: {} for mm in self.models.keys()}
-        self.hierarchical_parameter_mask = {mm: {} for mm in self.models.keys()}
+        #self.hierarchical_parameter_idx = {mm: {} for mm in self.models.keys()}
+        self.hierarchical_parameter_mask = {mm: {} for mm in self.models.keys()} # Excluding parameters with size > 1 (priors)
+        self.hierarchical_parameter_mask_size = {mm: {} for mm in self.models.keys()} # Including parameters with size > 1 (samples)
         self.initial_hyperparameters = {mm: {} for mm in self.models.keys()}
 
         for mm in self.models.keys():
             for p_code in self.hierarchical_parameters.keys():
                 param_names = self.models[mm].param_names
-                self.hierarchical_parameter_idx[mm][p_code] = [p_code in pp for pp in param_names]
+
                 self.hierarchical_parameter_mask[mm][p_code] = [
+                    ii for ii, pp in enumerate(self.models[mm].params) if p_code in pp.name
+                ]
+                self.hierarchical_parameter_mask_size[mm][p_code] = [
                     ii for ii, pp in enumerate(param_names) if p_code in pp
                 ]
+
                 self.initial_hyperparameters[mm][p_code] = np.array(
                     self.models[mm].params
                 )[self.hierarchical_parameter_mask[mm][p_code]][0].prior.func_kwargs
@@ -74,13 +79,13 @@ class HierarchicalHyperModel(hypermodel.HyperModel):
         if hyperprior_samples is None:
 
             # Ensure default hierarchical parameters are present
-            required_parameters = {'red_noise_log10_A', 'red_noise_gamma'}
+            required_params = {'red_noise_log10_A', 'red_noise_gamma'}
             provided_params = set(hierarchical_parameters.keys())
             if provided_params != required_params:
                 raise ValueError(f"When hyperprior_samples is None, hierarchical_parameters must be exactly {required_params}. Provided: {provided_params}")
 
             self.hyperprior_sampler = {
-                hp: samples_truncnorm_based_on_unif(self.models[0].params, noise_parameter=np, n_samples=n_hyperprior_samples)
+                hp: samples_truncnorm_based_on_unif(self.models[0].params, noise_parameter=hp, n_samples=n_hyperprior_samples)
                 for hp in hierarchical_parameters.keys()
             }
             self.n_hyperprior_samples = n_hyperprior_samples
@@ -89,9 +94,9 @@ class HierarchicalHyperModel(hypermodel.HyperModel):
 
             # Check for consistency of provided hyperprior samples
             n_samples = [hp_samples.shape for noise_term in hierarchical_parameters.keys() for hp_samples in hyperprior_samples[noise_term].values()]
-            unique_shapes = np.unique(n_samples)
+            unique_shapes = np.unique(np.array(n_samples),axis=0)
 
-            if len(unique_shapes) > 1:
+            if unique_shapes.shape[0] > 1:
                 raise ValueError('All hyperprior_samples must have consistent number of samples across noise terms. Array shapes provided: ', unique_shapes)
             elif unique_shapes[0][0] != 1:
                 raise ValueError('Each hyperprior_sample array must have shape (1, N).')
@@ -102,7 +107,7 @@ class HierarchicalHyperModel(hypermodel.HyperModel):
 
     def hyperprior_log_weight_factor(self, x, nmodel):
         """
-        Calculate the log weight factor due to the hyperprior in the likelihood.
+        Calculate the log weight factor due to the hyperprior in the likelihood. 
 
         Parameters
         ----------
@@ -119,12 +124,26 @@ class HierarchicalHyperModel(hypermodel.HyperModel):
         log_prior_ratio_total = 0.0
 
         for p_code, p_prior in self.hierarchical_parameters.items():
+            pmask_size = self.hierarchical_parameter_mask_size[nmodel][p_code]
             pmask = self.hierarchical_parameter_mask[nmodel][p_code]
-            theta = np.array(x)[pmask][:, np.newaxis]  # Convert to column vector
-            log_priors_target = np.log(p_prior(theta, **self.hyperprior_sampler[p_code]))
-            log_priors_proposal = np.array([psr_param.get_logpdf(pval) for psr_param, pval in zip(np.array(self.models[nmodel].params)[pmask], np.array(x)[pmask])])[:, np.newaxis]
 
-            # Sum over pulsars: \pi(\theta) = \prod \theta_i
+            theta = np.array(x)[pmask_size][:, np.newaxis]  # Shape (N_params, 1)
+
+            # self.hyperprior_sampler[pcode][hparam] shape: (1, N_hyperprior_samples)
+            # Result of p_prior() shape: (N_params, N_hyperprior_samples)
+
+            # ============== TARGET PRIOR ============== #
+            log_priors_target = np.log(p_prior(theta, **self.hyperprior_sampler[p_code])) # Shape (N_params, N_hyperprior_samples)
+            # ========================================== #
+
+            # ============= PROPOSAL PRIOR ============= #
+            # Old log_priors_proposal, works only for enterprise parameters/priors with size of 1 (1 sample per parameter)
+            #log_priors_proposal = np.array([psr_param.get_logpdf(pval) for psr_param, pval in zip(np.array(self.models[nmodel].params)[pmask], np.array(x)[pmask_size])])[:, np.newaxis] # Shape (N_params, 1)
+            # New log_priors_proposal, works for parameters of any size (e.g., gw_log10_rho which are GWB amplitudes for several frequencies)
+            log_priors_proposal = np.concatenate([np.atleast_1d(np.log(psr_param.prior._func(np.array(self.models[nmodel].map_params(x)[psr_param.name]), **psr_param.prior.func_kwargs))) for psr_param in np.array(self.models[nmodel].params)[pmask]])[:, np.newaxis] # Shape (N_params, 1)
+            # ========================================== #
+
+            # Product of priors: \pi(\theta) = \prod \theta_i
             log_prior_ratio_total += np.sum(log_priors_target - log_priors_proposal, axis=0)
 
         return logsumexp(log_prior_ratio_total) - np.log(self.n_hyperprior_samples)
