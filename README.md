@@ -50,17 +50,17 @@ hierarchical_parameters = {
 # Let's provide samples for hyperparameters of the target prior.
 # Keys should correspond to kwargs of the above parameter.UniformPrior;
 # Range (0., 10.) is a hyperprior range;
-# parameter.TruncatedNormalSampler is a hyperprior distribution.
+# parameter.TruncNormalSampler is a hyperprior distribution.
 n_samp = 10000
 hyperprior_samples = {
-    # Argument order for TruncatedNormalSampler: mean, std, min, max
+    # Argument order for TruncNormalSampler: mean, std, min, max
     'dm_gp_log10_A': {
-        'pmin': parameter.TruncatedNormalSampler(-18., 2., -20., -10., size=n_samp)[np.newaxis, :],
-        'pmax': parameter.TruncatedNormalSampler(-12., 2., -20., -10., size=n_samp)[np.newaxis, :]
+        'pmin': parameter.TruncNormalSampler(-18., 2., -20., -10., size=n_samp)[np.newaxis, :],
+        'pmax': parameter.TruncNormalSampler(-12., 2., -20., -10., size=n_samp)[np.newaxis, :]
     },
     'dm_gp_gamma': {
-        'pmin': parameter.TruncatedNormalSampler(2., 2., 0., 7., size=n_samp)[np.newaxis, :],
-        'pmax': parameter.TruncatedNormalSampler(5., 2., 0., 7., size=n_samp)[np.newaxis, :]
+        'pmin': parameter.TruncNormalSampler(2., 2., 0., 7., size=n_samp)[np.newaxis, :],
+        'pmax': parameter.TruncNormalSampler(5., 2., 0., 7., size=n_samp)[np.newaxis, :]
     }
 } 
 
