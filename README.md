@@ -16,7 +16,7 @@ The code has not been tested as a stand-alone package, please make pull requests
 
 ## Example: signal.py
 
-There is a default analysis which is very easy to run, as shown below. It allows to model the distribution (prior) of power-law pulsar spin noise (achromatic red noise) parameters as a truncated Normal distribution without covariance:
+There is a default analysis which is very easy to run, as shown below. It allows to model the distribution (prior) of power-law pulsar spin noise (SN, achromatic red noise) parameters as a truncated Normal distribution without covariance:
 ```
 from pta_priors import signal
 
@@ -32,12 +32,74 @@ sampler.sample(x0, 1e6, **upd_sample_kwargs)
 ```
 This yields a likelihood marginalised over hyperparameters of the truncated Normal distribution: the mean and the standard deviation. Truncation boundaries are fixed at the positions of uniform prior boundaries. Hyperprior on hyperparameters are chosen to be uniform.
 
-You can model spin noise prior differently, and you can also model priors of other parameters. For example, for DM noise and a uniform (flexible) prior, and a truncated Normal hyperprior, you need to do:
+*Validity*: The example above works if SN is the dominant source of pulsar red noise. In reality, many pulsars also show evidence of dispersion measure (DM) variation noise. DM noise, as well as any other pulsar red noise like scattering noise, can also be hierarchically modeled with `pta_priors`.
+
+### signal.py: standard analysis of SN + DM noise
+
+Below is an example of an analysis which can become standard for PTAs. It is expected to be included in [arXiv:2409.03661](https://arxiv.org/abs/2409.03661) soon. The analysis models ensemble noise properties for both SN and dispersion measure (DM) variation noise, the two primary sources of PTA red noise. 
+
 ```
 from pta_priors import signal
 from enterprise.signals import parameter
 
-# Below, load enterprise PTA object with uniform DM noise priors on log10_A and gamma
+# Below, load enterprise PTA object with uniform noise priors on log10_A and gamma for SN and DM
+# (proposal prior)
+pta = None
+
+# Let's set the target prior. Dictionary keys should be fragments of enterprise parameter names. Full parameter names will be something like 'J0437-4715_dm_gp_log10_A'.
+hierarchical_parameters = {
+    'red_noise_log10_A': parameter.TruncNormalPrior,
+    'red_noise_gamma': parameter.TruncNormalPrior,
+    'dm_gp_log10_A': parameter.TruncNormalPrior,
+    'dm_gp_gamma': parameter.TruncNormalPrior
+}
+
+# Let's provide samples for hyperparameters of the target prior.
+# Keys should correspond to kwargs of the above parameter.UniformPrior;
+# Range (0., 10.) is a hyperprior range;
+# parameter.TruncatedNormalSampler is a hyperprior distribution.
+n_samp = 10000
+hyperprior_samples = {
+    # Argument order for TruncatedNormalSampler: mean, std, min, max
+    'dm_gp_log10_A': {
+        'mu': parameter.UniformSampler(-18., -10., size=n_samp)[np.newaxis, :],
+        'sigma': parameter.UniformSampler(0., 10., size=n_samp)[np.newaxis, :],
+        'pmin': np.repeat(-18., n_samp)[np.newaxis, :],
+        'pmax': np.repeat(-10., n_samp)[np.newaxis, :]
+    },
+    'dm_gp_gamma': {
+        'mu': parameter.UniformSampler(0., 7., size=n_samp)[np.newaxis, :],
+        'sigma': parameter.UniformSampler(0., 10., size=n_samp)[np.newaxis, :],
+        'pmin': np.repeat(0., n_samp)[np.newaxis, :],
+        'pmax': np.repeat(7., n_samp)[np.newaxis, :]
+    },
+    'red_noise_log10_A': {
+        'mu': parameter.UniformSampler(-18., -10., size=n_samp)[np.newaxis, :],
+        'sigma': parameter.UniformSampler(0., 10., size=n_samp)[np.newaxis, :],
+        'pmin': np.repeat(-18., n_samp)[np.newaxis, :],
+        'pmax': np.repeat(-10., n_samp)[np.newaxis, :]
+    },
+    'red_noise_gamma': {
+        'mu': parameter.UniformSampler(0., 7., size=n_samp)[np.newaxis, :],
+        'sigma': parameter.UniformSampler(0., 10., size=n_samp)[np.newaxis, :],
+        'pmin': np.repeat(0., n_samp)[np.newaxis, :],
+        'pmax': np.repeat(7., n_samp)[np.newaxis, :]
+    },
+}
+
+super_model = HierarchicalHyperModel(pta, hierarchical_parameters=hierarchical_parameters, hyperprior_samples=hyperprior_samples)
+
+# Set up the sampler and start sampling.
+```
+
+### signal.py: an abstract example, as an exercise
+
+For DM noise and a uniform (flexible) prior, and a truncated Normal hyperprior, you need to do:
+```
+from pta_priors import signal
+from enterprise.signals import parameter
+
+# Below, load enterprise PTA object with uniform noise priors on log10_A and gamma of DM
 # (proposal prior)
 pta = None
 
@@ -68,7 +130,6 @@ super_model = HierarchicalHyperModel(pta, hierarchical_parameters=hierarchical_p
 
 # Set up the sampler and start sampling.
 ```
-The modelling can be performed for any other noise terms. 
 
 ## Attribution
 
